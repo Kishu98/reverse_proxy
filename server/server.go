@@ -1,53 +1,63 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"log"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
-	args := os.Args
-	if len(args) == 1 {
-		fmt.Println("Enter the port number:")
+	listener, err := net.Listen("tcp4", ":9000")
+	if err != nil {
+		fmt.Println("Error starting server:", err)
 		os.Exit(1)
 	}
-
-	port := ":" + args[1]
-	conn, err := net.Listen("tcp4", port)
-	if err != nil {
-		log.Printf("Error starting server on %v: %v", conn.Addr(), err)
-		return
-	}
-	defer conn.Close()
+	defer listener.Close()
+	fmt.Println("Server is listening on port 9000...")
 
 	for {
-		serverConn, err := conn.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
-			log.Println("Error connecting to client:", err)
-			return
+			fmt.Println("Error connecting to client:", err)
+			continue
 		}
-		log.Println("Connected to client")
-
-		go handleConnection(serverConn)
+		go handleConnection(conn)
 	}
 }
 
-func handleConnection(c net.Conn) {
+func handleConnection(conn net.Conn) {
 	defer func() {
-		c.Close()
+		fmt.Println("Closing connection")
+		conn.Close()
 	}()
 
 	for {
-		client_message, err := bufio.NewReader(c).ReadString('\n')
+		// Reading from the client
+		buf := make([]byte, 2048)
+		n, err := conn.Read(buf)
 		if err != nil {
-			log.Println("Error reading message from client:", err)
+			fmt.Println("Error reading from client:", err)
 			return
 		}
-		fmt.Println(">", client_message)
+		message := strings.TrimRight(string(buf[:n]), "\n")
+		fmt.Println("Received from client -->", message)
 
-		fmt.Fprintf(c, "From server: %s", client_message)
+		if strings.TrimSpace(message) == "STOP" {
+			fmt.Println("Disconnecting server...")
+			_, err = conn.Write([]byte("Good Bye"))
+			if err != nil {
+				fmt.Println("Error")
+				return
+			}
+            return
+		}
+
+		_, err = conn.Write([]byte(strings.TrimRight(message, "\n")))
+		if err != nil {
+			fmt.Println("Error sending message to client:", err)
+			return
+		}
+		fmt.Println("Sent to client -->", message)
 	}
 }
