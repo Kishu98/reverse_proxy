@@ -7,20 +7,24 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
+	// Connecting to the Reverse Proxy
 	conn, err := net.Dial("tcp4", "localhost:9002")
 	if err != nil {
 		fmt.Println("Error connecting to the reverse proxy:", err)
 		os.Exit(1)
 	}
+	// Will close connection after the completion of the for loop
 	defer conn.Close()
 	fmt.Println("Connected to the reverse proxy at:", conn.RemoteAddr())
 
+	// Reader for getting input from the stdin
 	user_input_reader := bufio.NewReader(os.Stdin)
-	for {
 
+	for {
 		// Read the input from the stdin
 		fmt.Print("--> ")
 		user_input, err := user_input_reader.ReadString('\n')
@@ -29,12 +33,14 @@ func main() {
 			break
 		}
 
+		// STOP will trigger closing of connection
 		if strings.TrimSpace(user_input) == "STOP" {
 			fmt.Println("Disconnecting...")
-            _, err = conn.Write([]byte(user_input))
-            if err != nil {
-                fmt.Println("Error")
-            }
+			_, err = conn.Write([]byte(user_input))
+			if err != nil {
+				fmt.Println("Error")
+			}
+			time.Sleep(time.Second)
 			break
 		}
 
