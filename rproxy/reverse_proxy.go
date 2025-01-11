@@ -1,54 +1,81 @@
 package main
 
 import (
-	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 )
 
 func main() {
-	listener, err := net.Listen("tcp4", ":9002")
+	proxyListener, err := net.Listen("tcp4", "")
 	if err != nil {
-		fmt.Println("Error starting the reverse proxy server:", err)
+		log.Println("Error starting proxy:", err)
 		os.Exit(1)
 	}
-	defer listener.Close()
-	fmt.Println("Reverse proxy is listening at port 9002...")
+	log.Println("Proxy listening at:", proxyListener.Addr())
+	defer proxyListener.Close()
 
 	for {
-		clientConn, err := listener.Accept()
+		clientConn, err := proxyListener.Accept()
 		if err != nil {
-			fmt.Println("Error connecting to client:", err)
-			continue
+			log.Println("Error connecting to client:", err)
+			break
 		}
-		fmt.Println("Connected to client:", clientConn.RemoteAddr())
+		log.Println("Proxy connected to client at", clientConn.RemoteAddr())
 
 		go handleClientConnection(clientConn)
 	}
 }
 
 func handleClientConnection(clientConn net.Conn) {
-	serverConn, err := net.Dial("tcp4", "localhost:9000")
+	serverListener, err := net.Listen("tcp4", "")
 	if err != nil {
-		fmt.Println("Error connecting to the server:", err)
+		log.Println("Error starting server:", err)
 		return
 	}
-	fmt.Println("Connected to the server at:", serverConn.RemoteAddr())
-    defer func() {
-        fmt.Println("Closing connections")
-        clientConn.Close()
-        serverConn.Close()
-    }()
+	log.Println("Server listening at:", serverListener.Addr())
+	// defer serverListener.Close()
+
+	go func() {
+		serverConn, err := serverListener.Accept()
+		if err != nil {
+			log.Println("Error connecting to the proxy:", err)
+			return
+		}
+		log.Println("Server connected to proxy at", serverConn.RemoteAddr())
+
+		defer serverConn.Close()
+		for {
+			buf := make([]byte, 2048)
+			n, err := serverConn.Read(buf)
+			if err != nil {
+				log.Println("Error reading data from the proxy:", err)
+				break
+			}
+			log.Println("Received message", string(buf[:n]))
+		}
+
+	}()
+
+	serverConn, err := net.Dial("tcp4", serverListener.Addr().String())
+	if err != nil {
+		log.Println("Error connecting to the server:", err)
+		return
+	}
+	log.Println("Proxy connected to server at", serverConn.RemoteAddr())
 
 	go forwardData(clientConn, serverConn)
 	forwardData(serverConn, clientConn)
-
 }
 
 func forwardData(src, dest net.Conn) {
+	log.Println("Sending to:", dest.RemoteAddr())
 	_, err := io.Copy(dest, src)
 	if err != nil {
-		fmt.Println("Error writing to server from client:", err)
+		log.Println("Error writing to:", dest.RemoteAddr())
+		return
 	}
+	log.Println("Sent Message from :", src.RemoteAddr())
+	log.Println("Received message from:", dest.RemoteAddr())
 }

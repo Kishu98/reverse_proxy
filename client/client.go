@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"strings"
@@ -11,8 +10,9 @@ import (
 )
 
 func main() {
+	args := os.Args
 	// Connecting to the Reverse Proxy
-	conn, err := net.Dial("tcp4", "localhost:9002")
+	conn, err := net.Dial("tcp4", args[1])
 	if err != nil {
 		fmt.Println("Error connecting to the reverse proxy:", err)
 		os.Exit(1)
@@ -52,17 +52,17 @@ func main() {
 		}
 
 		// Receive the message sent from the server through the reverse proxy
-		buf := make([]byte, 1024)
-		n, err := conn.Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				fmt.Println("Error reading from the server:", err)
-				break
-			}
-		}
-
-		// Print the message received
-		receivedMsg := string(buf[:n])
-		fmt.Println("Received -->", receivedMsg)
+		// buf := make([]byte, 1024)
+		// n, err := conn.Read(buf)
+		// if err != nil {
+		// 	if err != io.EOF {
+		// 		fmt.Println("Error reading from the server:", err)
+		// 		break
+		// 	}
+		// }
+		//
+		// // Print the message received
+		// receivedMsg := string(buf[:n])
+		// fmt.Println("Received -->", receivedMsg)
 	}
 }
